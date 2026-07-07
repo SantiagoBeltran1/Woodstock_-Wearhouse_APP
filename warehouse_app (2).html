@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WarehouseIQ</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif}
+:root{
+  --navy:#043e78;--navy2:#032f5c;--navy3:#021e3d;
+  --orange:#ff5900;--orange2:#e04e00;
+  --green:#3B6D11;--green-bg:#EAF3DE;
+  --red:#A32D2D;--red-bg:#FCEBEB;
+  --yellow:#854F0B;--yellow-bg:#FAEEDA;
+  --grey:#888;--grey-bg:#f4f6f9;--grey-border:#dde3ed;
+  --white:#fff;--text:#1a1a2e;--text2:#555;
+}
+body{background:var(--grey-bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* TOPBAR */
+.topbar{background:var(--navy);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px;flex-shrink:0;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px;cursor:pointer}
+.logo-icon{width:34px;height:34px;background:var(--orange);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff}
+.logo-text{color:#fff;font-size:15px;font-weight:600;letter-spacing:.3px}
+.logo-sub{color:rgba(255,255,255,.45);font-size:11px;font-weight:400;margin-left:3px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.user-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 12px 4px 5px;cursor:pointer}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0}
+.user-name{font-size:12px;color:rgba(255,255,255,.9)}
+.icon-btn{background:none;border:none;color:rgba(255,255,255,.6);font-size:20px;cursor:pointer;padding:4px;border-radius:6px;line-height:1;display:flex;align-items:center}
+.icon-btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+
+/* NAV */
+.nav{background:var(--navy2);display:flex;padding:0 24px;gap:2px;flex-shrink:0;overflow-x:auto}
+.nav-tab{color:rgba(255,255,255,.55);font-size:13px;padding:11px 14px;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;transition:color .15s}
+.nav-tab:hover{color:rgba(255,255,255,.85)}
+.nav-tab.active{color:#fff;border-bottom:2px solid var(--orange)}
+.nav-tab .badge-count{background:var(--orange);color:#fff;font-size:10px;font-weight:600;padding:1px 5px;border-radius:10px;min-width:18px;text-align:center}
+
+/* PAGES */
+.page{display:none;flex:1;overflow:auto}
+.page.active{display:flex;flex-direction:column}
+.page-content{padding:20px 24px;flex:1;display:flex;flex-direction:column;gap:16px}
+
+/* CARDS & PANELS */
+.card{background:#fff;border:1px solid var(--grey-border);border-radius:10px;padding:16px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:6px}
+.card-title .ico{color:var(--orange);font-size:16px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#fff;border:1px solid var(--grey-border);border-radius:10px;padding:14px 16px;border-left:3px solid var(--navy)}
+.stat.orange{border-left-color:var(--orange)}
+.stat.green{border-left-color:var(--green)}
+.stat.yellow{border-left-color:#BA7517}
+.stat-label{font-size:11px;color:var(--grey);margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:600;color:var(--navy)}
+.stat-val.orange{color:var(--orange)}
+.stat-val.green{color:var(--green)}
+.stat-val.yellow{color:#BA7517}
+.stat-sub{font-size:10px;color:#bbb;margin-top:3px}
+
+/* WELCOME */
+.welcome{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.welcome h2{font-size:18px;font-weight:600;color:var(--navy)}
+.welcome p{font-size:12px;color:var(--grey);margin-top:2px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:background .15s,transform .1s}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:hover{background:var(--orange2)}
+.btn-secondary{background:#fff;color:var(--navy);border:1px solid var(--grey-border)}
+.btn-secondary:hover{background:var(--grey-bg)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid #f7c1c1}
+.btn-danger:hover{background:#f7c1c1}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* BADGE */
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;display:inline-flex;align-items:center}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-yellow{background:var(--yellow-bg);color:var(--yellow)}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-navy{background:#e6f1fb;color:var(--navy)}
+
+/* ACTIVITY */
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f5f5f5}
+.activity-item:last-child{border-bottom:none}
+.act-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.act-text{font-size:12px;color:var(--text);line-height:1.5}
+.act-text b{color:var(--navy)}
+.act-time{font-size:10px;color:#bbb;margin-top:2px}
+
+/* ALERT LIST */
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f5f5f5}
+.alert-item:last-child{border-bottom:none}
+.alert-body{flex:1}
+.alert-sku{font-size:12px;font-weight:600;color:var(--navy)}
+.alert-desc{font-size:11px;color:var(--grey);margin-top:2px}
+
+/* OCCUPANCY BARS */
+.occ-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.occ-label{font-size:12px;font-weight:600;color:var(--navy);width:60px;flex-shrink:0}
+.occ-bar-wrap{flex:1;height:14px;background:#eef2f8;border-radius:3px;overflow:hidden}
+.occ-bar{height:100%;border-radius:3px;background:var(--navy);transition:width .4s}
+.occ-bar.hi{background:var(--orange)}
+.occ-pct{font-size:11px;color:var(--grey);width:35px;text-align:right;flex-shrink:0}
+
+/* WAREHOUSE MAP */
+.map-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap input{width:100%;padding:8px 12px 8px 34px;border:1px solid var(--grey-border);border-radius:7px;font-size:13px;background:#fff}
+.search-wrap .si{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--grey)}
+.filter-btn{padding:7px 12px;border:1px solid var(--grey-border);border-radius:7px;font-size:12px;color:var(--grey);background:#fff;cursor:pointer;display:flex;align-items:center;gap:5px}
+.filter-btn.active{border-color:var(--navy);color:var(--navy);background:#e6f1fb}
+.aisle-block{background:#fff;border:1px solid var(--grey-border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.aisle-hdr{background:var(--navy);color:#fff;padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.aisle-hdr span{font-size:11px;color:rgba(255,255,255,.6);font-weight:400}
+.aisle-grid{padding:10px;overflow-x:auto}
+.section-labels{display:flex;gap:3px;margin-bottom:4px;padding-left:52px}
+.sec-lbl{width:110px;font-size:10px;color:var(--grey);text-align:center;flex-shrink:0}
+.level-row{display:flex;gap:3px;align-items:center;margin-bottom:3px}
+.lvl-lbl{width:48px;font-size:10px;font-weight:600;color:var(--grey);flex-shrink:0;text-align:right;padding-right:6px}
+.cell{width:110px;min-height:44px;border-radius:5px;font-size:9px;padding:4px 5px;display:flex;flex-direction:column;justify-content:center;cursor:pointer;border:1px solid;transition:transform .1s;flex-shrink:0;word-break:break-word}
+.cell:hover{transform:scale(1.03)}
+.cell.occupied{background:#EAF3DE;border-color:#97C459;color:#3B6D11}
+.cell.empty{background:#FCEBEB;border-color:#F09595;color:#A32D2D;font-weight:600;text-align:center}
+.cell.disabled{background:#f0f0f0;border-color:#ccc;color:#aaa;text-align:center;cursor:default;font-style:italic}
+.cell.cell-found{outline:2px solid var(--orange);outline-offset:1px}
+.cell-sku{font-weight:700;font-size:9px}
+.cell-name{font-size:8px;opacity:.8;margin-top:1px}
+.cell-loc{font-size:8px;text-align:center;color:var(--orange);font-weight:600}
+
+/* MAP LEGEND */
+.map-legend{display:flex;gap:14px;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--grey)}
+.leg-dot{width:12px;height:12px;border-radius:3px;border:1px solid}
+
+/* CATALOG TABLE */
+.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--grey-border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:var(--navy)}
+thead th{color:#fff;padding:10px 14px;font-weight:600;text-align:left;font-size:12px}
+tbody tr{border-bottom:1px solid #f0f0f0;transition:background .1s}
+tbody tr:hover{background:#f8fbff}
+tbody td{padding:9px 14px;color:var(--text);vertical-align:middle}
+.sku-cell{font-family:monospace;font-size:12px;font-weight:600;color:var(--navy)}
+.loc-tags{display:flex;gap:4px;flex-wrap:wrap}
+.loc-tag{font-size:10px;font-weight:600;background:#e6f1fb;color:var(--navy);padding:2px 7px;border-radius:4px}
+
+/* ALERTS PAGE */
+.alert-card{background:#fff;border:1px solid var(--grey-border);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.alert-info{flex:1}
+.alert-locs{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.alert-loc-tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px}
+.alert-loc-tag.red{background:#FCEBEB;color:#A32D2D}
+.alert-loc-tag.yellow{background:#FAEEDA;color:#854F0B}
+.alert-reason{font-size:11px;color:var(--grey);margin-top:5px}
+.alert-actions{display:flex;gap:6px;flex-shrink:0;align-items:center}
+
+/* AISLE SETTINGS */
+.aisle-settings-grid{display:grid;grid-template-columns:220px 1fr;gap:14px}
+.aisle-list-panel{background:#fff;border:1px solid var(--grey-border);border-radius:10px;padding:12px}
+.aisle-list-item{padding:9px 10px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;transition:background .1s}
+.aisle-list-item:hover{background:var(--grey-bg)}
+.aisle-list-item.selected{background:#e6f1fb;color:var(--navy);font-weight:600}
+.aisle-list-item .aisle-badge{font-size:10px;color:var(--grey);background:#f0f4f8;padding:2px 7px;border-radius:4px}
+.aisle-list-item.selected .aisle-badge{background:#c5d9f0;color:var(--navy)}
+.add-aisle-btn{width:100%;margin-top:8px;padding:9px;border:1.5px dashed var(--grey-border);border-radius:7px;font-size:12px;color:var(--grey);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.add-aisle-btn:hover{border-color:var(--orange);color:var(--orange);background:#fff5f2}
+.edit-panel{background:#fff;border:1px solid var(--grey-border);border-radius:10px;padding:16px}
+.form-group{margin-bottom:14px}
+.form-label{font-size:12px;color:var(--grey);margin-bottom:5px;display:block;font-weight:500}
+.form-input{width:100%;padding:8px 12px;border:1px solid var(--grey-border);border-radius:7px;font-size:13px;color:var(--text)}
+.form-input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(4,62,120,.1)}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+.info-box{background:#e6f1fb;border:1px solid #b5d4f4;border-radius:7px;padding:10px 12px;font-size:12px;color:var(--navy);display:flex;gap:8px;margin-bottom:14px}
+.mini-preview{display:flex;gap:2px;flex-wrap:wrap;max-height:80px;overflow:hidden;margin-top:8px}
+.mini-cell{width:22px;height:16px;border-radius:2px;background:#EAF3DE;border:1px solid #97C459}
+.mini-cell.dis{background:#f0f0f0;border-color:#ccc}
+.divider{border:none;border-top:1px solid #f0f0f0;margin:14px 0}
+
+/* HISTORY PAGE */
+.history-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.history-item{background:#fff;border:1px solid var(--grey-border);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+.history-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.history-icon.move{background:#e6f1fb;color:var(--navy)}
+.history-icon.add{background:var(--green-bg);color:var(--green)}
+.history-icon.edit{background:var(--yellow-bg);color:#854F0B}
+.history-icon.delete{background:var(--red-bg);color:var(--red)}
+.history-icon.aisle{background:#f3e8ff;color:#5b21b6}
+.history-body{flex:1}
+.history-text{font-size:13px;color:var(--text)}
+.history-text b{color:var(--navy)}
+.history-meta{font-size:11px;color:var(--grey);margin-top:3px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;width:420px;max-width:95vw;padding:24px;position:relative}
+.modal-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--grey);margin-bottom:18px}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--grey);line-height:1}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+
+/* USER NAME PROMPT */
+.name-screen{position:fixed;inset:0;background:var(--navy);z-index:300;display:flex;align-items:center;justify-content:center}
+.name-card{background:#fff;border-radius:14px;padding:32px;width:360px;text-align:center}
+.name-card .logo-icon-big{width:56px;height:56px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;margin:0 auto 16px}
+.name-card h2{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.name-card p{font-size:13px;color:var(--grey);margin-bottom:20px}
+.name-input{width:100%;padding:10px 14px;border:1.5px solid var(--grey-border);border-radius:8px;font-size:14px;text-align:center;margin-bottom:14px}
+.name-input:focus{outline:none;border-color:var(--navy)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 18px;border-radius:9px;font-size:13px;z-index:999;display:none;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.toast.show{display:flex}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red)}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .aisle-settings-grid{grid-template-columns:1fr}
+  .page-content{padding:14px}
+}
+</style>
+</head>
+<body>
+
+<!-- USER NAME SCREEN -->
+<div class="name-screen" id="nameScreen">
+  <div class="name-card">
+    <div class="logo-icon-big">🏭</div>
+    <h2>WarehouseIQ</h2>
+    <p>Enter your name to continue. This will be recorded with every change you make.</p>
+    <input class="name-input" id="nameInput" placeholder="Your name" maxlength="30"/>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="setUser()">Enter warehouse →</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- CELL DETAIL MODAL -->
+<div class="modal-overlay" id="cellModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('cellModal')">✕</button>
+    <div class="modal-title" id="cellModalTitle">Location detail</div>
+    <div class="modal-sub" id="cellModalSub"></div>
+    <div id="cellModalBody"></div>
+    <div class="modal-actions" id="cellModalActions"></div>
+  </div>
+</div>
+
+<!-- EDIT PRODUCT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    <div class="modal-title">Edit location</div>
+    <div class="modal-sub" id="editModalSub"></div>
+    <div class="form-group">
+      <label class="form-label">New location(s) — comma separated (e.g. A3-2, A3-3)</label>
+      <input class="form-input" id="editLocInput" placeholder="e.g. K5-2, K5-3"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLocationEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD AISLE MODAL -->
+<div class="modal-overlay" id="addAisleModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addAisleModal')">✕</button>
+    <div class="modal-title">Add new aisle</div>
+    <div class="modal-sub">Configure the new aisle structure.</div>
+    <div class="form-group">
+      <label class="form-label">Aisle letter (A–Z, must be unique)</label>
+      <input class="form-input" id="newAisleName" placeholder="e.g. M" maxlength="2" style="text-transform:uppercase"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Sections</label>
+        <input class="form-input" id="newAisleSections" type="number" min="1" max="30" value="10"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Levels</label>
+        <input class="form-input" id="newAisleLevels" type="number" min="1" max="20" value="4"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('addAisleModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewAisle()">Create aisle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PRODUCT MODAL -->
+<div class="modal-overlay" id="addProductModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addProductModal')">✕</button>
+    <div class="modal-title">Add new product</div>
+    <div class="modal-sub">This product will be saved to the catalog and visible to all users instantly.</div>
+    <div class="form-group">
+      <label class="form-label">SKU / KEY</label>
+      <input class="form-input" id="newProductSku" placeholder="e.g. 512-1099-1"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Product name</label>
+      <input class="form-input" id="newProductName" placeholder="e.g. Dining Chair Oak"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Location(s) — optional, comma separated</label>
+      <input class="form-input" id="newProductLoc" placeholder="e.g. A3-2, A3-3 — leave empty if not yet placed"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('addProductModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewProduct()">➕ Add product</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div class="topbar">
+  <div class="logo" onclick="navigate('dashboard')">
+    <div class="logo-icon">🏭</div>
+    <span class="logo-text">WarehouseIQ <span class="logo-sub">v2.0</span></span>
+  </div>
+  <div class="topbar-right">
+    <div class="user-pill" id="userPill">
+      <div class="avatar" id="userAvatar">?</div>
+      <span class="user-name" id="userName">—</span>
+    </div>
+    <button class="icon-btn" title="Switch user" onclick="switchUser()">⇄</button>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-tab active" data-page="dashboard" onclick="navigate('dashboard')">📊 Dashboard</div>
+  <div class="nav-tab" data-page="map" onclick="navigate('map')">🗺️ Warehouse map</div>
+  <div class="nav-tab" data-page="alerts" onclick="navigate('alerts')">⚠️ Alerts <span class="badge-count" id="alertCount">0</span></div>
+  <div class="nav-tab" data-page="catalog" onclick="navigate('catalog')">📦 Catalog</div>
+  <div class="nav-tab" data-page="aisles" onclick="navigate('aisles')">⚙️ Aisle settings</div>
+  <div class="nav-tab" data-page="history" onclick="navigate('history')">🕒 History</div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="page-content">
+    <div class="welcome">
+      <div>
+        <h2 id="welcomeMsg">Good morning</h2>
+        <p id="lastUpdate">Loading...</p>
+      </div>
+      <button class="btn btn-primary" onclick="navigate('catalog')">📦 View catalog</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Active locations</div><div class="stat-val" id="statTotal">—</div><div class="stat-sub" id="statAisles">— aisles</div></div>
+      <div class="stat green"><div class="stat-label">Products in warehouse</div><div class="stat-val green" id="statOccupied">—</div><div class="stat-sub">with location assigned</div></div>
+      <div class="stat orange"><div class="stat-label">Grouping alerts</div><div class="stat-val orange" id="statAlerts">—</div><div class="stat-sub" id="statAlertsSub">— red · — yellow</div></div>
+      <div class="stat yellow"><div class="stat-label">No location assigned</div><div class="stat-val yellow" id="statNoLoc">—</div><div class="stat-sub">in catalog, not placed</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title"><span class="ico">⚠️</span> Recent alerts</div><button class="btn btn-secondary btn-sm" onclick="navigate('alerts')">See all</button></div>
+        <div id="dashAlerts"><div style="color:var(--grey);font-size:13px;padding:8px 0">Loading...</div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title"><span class="ico">🕒</span> Recent activity</div><button class="btn btn-secondary btn-sm" onclick="navigate('history')">See all</button></div>
+        <div id="dashActivity"><div style="color:var(--grey);font-size:13px;padding:8px 0">Loading...</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title"><span class="ico">📊</span> Occupancy by aisle</div></div>
+      <div id="dashOccupancy">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- WAREHOUSE MAP -->
+<div class="page" id="page-map">
+  <div class="page-content">
+    <div class="map-controls">
+      <div class="search-wrap"><span class="si">🔍</span><input id="mapSearch" placeholder="Search by SKU or product name…" oninput="filterMap()"/></div>
+      <select class="filter-btn" id="aisleFilter" onchange="renderMap()"><option value="">All aisles</option></select>
+      <button class="filter-btn" id="emptyOnly" onclick="toggleEmptyFilter()">⬜ Empty only</button>
+    </div>
+    <div class="map-legend">
+      <div class="leg"><div class="leg-dot" style="background:#EAF3DE;border-color:#97C459"></div>Occupied</div>
+      <div class="leg"><div class="leg-dot" style="background:#FCEBEB;border-color:#F09595"></div>Empty</div>
+      <div class="leg"><div class="leg-dot" style="background:#f0f0f0;border-color:#ccc"></div>Disabled</div>
+    </div>
+    <div id="mapContainer">Loading warehouse map...</div>
+  </div>
+</div>
+
+<!-- ALERTS -->
+<div class="page" id="page-alerts">
+  <div class="page-content">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="filter-btn active" id="fAll" onclick="setAlertFilter('all')">All</button>
+      <button class="filter-btn" id="fRed" onclick="setAlertFilter('red')">🔴 Red only</button>
+      <button class="filter-btn" id="fYellow" onclick="setAlertFilter('yellow')">🟡 Yellow only</button>
+      <span id="alertSummary" style="font-size:12px;color:var(--grey);margin-left:4px"></span>
+    </div>
+    <div id="alertsList">Loading...</div>
+  </div>
+</div>
+
+<!-- CATALOG -->
+<div class="page" id="page-catalog">
+  <div class="page-content">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="search-wrap" style="flex:1;min-width:200px"><span class="si">🔍</span><input id="catalogSearch" placeholder="Search by SKU or name…" oninput="filterCatalog()"/></div>
+      <select class="filter-btn" id="catalogFilter" onchange="filterCatalog()">
+        <option value="all">All products</option>
+        <option value="located">In warehouse</option>
+        <option value="unlocated">No location</option>
+      </select>
+      <button class="btn btn-primary" onclick="openModal('addProductModal')">➕ Add product</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>SKU</th><th>Product name</th><th>Location(s)</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="catalogBody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--grey)">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <div id="catalogPager" style="text-align:center;padding:8px;font-size:12px;color:var(--grey)"></div>
+  </div>
+</div>
+
+<!-- AISLE SETTINGS -->
+<div class="page" id="page-aisles">
+  <div class="page-content">
+    <div class="aisle-settings-grid">
+      <div class="aisle-list-panel">
+        <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">Aisles</div>
+        <div id="aisleListItems">Loading...</div>
+        <button class="add-aisle-btn" onclick="openModal('addAisleModal')">+ Add new aisle</button>
+      </div>
+      <div class="edit-panel" id="aisleEditPanel">
+        <div style="color:var(--grey);font-size:13px;padding:20px 0;text-align:center">Select an aisle to edit</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="page" id="page-history">
+  <div class="page-content">
+    <div class="history-filters">
+      <div class="search-wrap" style="flex:1;min-width:200px"><span class="si">🔍</span><input id="historySearch" placeholder="Search activity…" oninput="filterHistory()"/></div>
+    </div>
+    <div id="historyList">Loading...</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://qeuizxyobllkmnedlxnb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_J83_dL_hdvAG_oIQVMUZsg_6asQw1ez';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = '';
+let aisles = [];
+let products = [];
+let activityLog = [];
+let alertFilter = 'all';
+let showEmptyOnly = false;
+let currentAisleEdit = null;
+let editingProductId = null;
+let catalogPage = 0;
+const PAGE_SIZE = 50;
+const AVATAR_COLORS = ['#043e78','#ff5900','#3B6D11','#BA7517','#5b21b6','#0e7490','#be185d'];
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.onload = async () => {
+  const saved = localStorage.getItem('wiq_user');
+  if (saved) { currentUser = saved; showApp(); }
+  else document.getElementById('nameScreen').style.display = 'flex';
+};
+
+function setUser() {
+  const n = document.getElementById('nameInput').value.trim();
+  if (!n) return;
+  currentUser = n;
+  localStorage.setItem('wiq_user', n);
+  showApp();
+}
+
+function switchUser() {
+  localStorage.removeItem('wiq_user');
+  location.reload();
+}
+
+async function showApp() {
+  document.getElementById('nameScreen').style.display = 'none';
+  const av = currentUser.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('userAvatar').textContent = av;
+  document.getElementById('userName').textContent = currentUser;
+  document.getElementById('userAvatar').style.background = AVATAR_COLORS[currentUser.charCodeAt(0)%AVATAR_COLORS.length];
+
+  const h = new Date().getHours();
+  document.getElementById('welcomeMsg').textContent = (h<12?'Good morning':h<17?'Good afternoon':'Good evening')+', '+currentUser;
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  await loadAll();
+  setupRealtime();
+}
+
+async function loadAll() {
+  const [a, p, log] = await Promise.all([
+    sb.from('aisles').select('*').order('id'),
+    sb.from('products').select('*').order('sku'),
+    sb.from('activity_log').select('*').order('created_at',{ascending:false}).limit(100)
+  ]);
+  aisles = a.data || [];
+  products = p.data || [];
+  activityLog = log.data || [];
+  renderAll();
+}
+
+function renderAll() {
+  renderDashboard();
+  renderMap();
+  renderAlerts();
+  renderCatalog();
+  renderAisleList();
+  renderHistory();
+}
+
+// ─── REALTIME ────────────────────────────────────────────────────────────────
+function setupRealtime() {
+  sb.channel('warehouse').on('postgres_changes',{event:'*',schema:'public'},()=>{loadAll();}).subscribe();
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function getDisabled(aisle) {
+  return new Set(aisle.disabled || []);
+}
+
+function getLocMap() {
+  const map = {};
+  for (const p of products) {
+    for (const loc of (p.locations||[])) {
+      if (!map[loc]) map[loc]=[];
+      map[loc].push(p);
+    }
+  }
+  return map;
+}
+
+function computeAlerts() {
+  const alerts = [];
+  for (const p of products) {
+    const locs = p.locations||[];
+    if (locs.length<=1) continue;
+    const aisleSet = new Set(locs.map(l=>l[0]));
+    if (aisleSet.size>1) {
+      alerts.push({product:p,type:'red',reason:'Locations in different aisles: '+[...aisleSet].join(', ')});
+    } else {
+      const sections = [...new Set(locs.map(l=>{const m=l.match(/[A-Z](\d+)-\d+/);return m?parseInt(m[1]):0}))].sort((a,b)=>a-b);
+      if (sections.length>1) {
+        const maxGap = Math.max(...sections.slice(1).map((s,i)=>s-sections[i]));
+        if (maxGap>2) alerts.push({product:p,type:'yellow',reason:`Same aisle, gap of ${maxGap} sections between locations`});
+      }
+    }
+  }
+  return alerts;
+}
+
+function timeAgo(ts) {
+  const s = Math.floor((Date.now()-new Date(ts))/1000);
+  if (s<60) return 'just now';
+  if (s<3600) return Math.floor(s/60)+'m ago';
+  if (s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+
+function avatarColor(name) {
+  return AVATAR_COLORS[(name||'').charCodeAt(0)%AVATAR_COLORS.length];
+}
+
+function initials(name) {
+  return (name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+
+function actionIcon(action) {
+  if (action==='move'||action==='location_update') return {cls:'move',ico:'📍'};
+  if (action==='add'||action==='create') return {cls:'add',ico:'➕'};
+  if (action==='edit') return {cls:'edit',ico:'✏️'};
+  if (action==='delete') return {cls:'delete',ico:'🗑️'};
+  if (action==='aisle') return {cls:'aisle',ico:'🏗️'};
+  return {cls:'move',ico:'📝'};
+}
+
+async function logActivity(action, entityType, entityId, details) {
+  await sb.from('activity_log').insert({user_name:currentUser,action,entity_type:entityType,entity_id:String(entityId),details});
+}
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show '+(type||'');
+  setTimeout(()=>t.className='toast',3000);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const locMap = getLocMap();
+  const alerts = computeAlerts();
+  const red = alerts.filter(a=>a.type==='red').length;
+  const yellow = alerts.filter(a=>a.type==='yellow').length;
+
+  let totalActive = 0;
+  for (const a of aisles) {
+    const dis = getDisabled(a);
+    for (let s=1;s<=a.sections;s++) for (let l=1;l<=a.levels;l++) if (!dis.has(`${a.id}${s}-${l}`)) totalActive++;
+  }
+
+  const withLoc = products.filter(p=>(p.locations||[]).length>0).length;
+  const noLoc = products.filter(p=>(p.locations||[]).length===0).length;
+
+  document.getElementById('statTotal').textContent = totalActive;
+  document.getElementById('statAisles').textContent = aisles.length+' aisles active';
+  document.getElementById('statOccupied').textContent = withLoc;
+  document.getElementById('statAlerts').textContent = alerts.length;
+  document.getElementById('statAlertsSub').textContent = `${red} red · ${yellow} yellow`;
+  document.getElementById('statNoLoc').textContent = noLoc;
+  document.getElementById('alertCount').textContent = alerts.length;
+
+  // Recent alerts
+  const al = document.getElementById('dashAlerts');
+  if (!alerts.length) { al.innerHTML='<div style="color:var(--grey);font-size:13px;padding:8px 0">No alerts — warehouse well organized!</div>'; }
+  else {
+    al.innerHTML = alerts.slice(0,4).map(a=>`
+      <div class="alert-item">
+        <span class="badge badge-${a.type==='red'?'red':'yellow'}">${a.type==='red'?'🔴 Red':'🟡 Yellow'}</span>
+        <div class="alert-body">
+          <div class="alert-sku">${a.product.sku}</div>
+          <div class="alert-desc">${a.reason}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Recent activity
+  const ac = document.getElementById('dashActivity');
+  if (!activityLog.length) { ac.innerHTML='<div style="color:var(--grey);font-size:13px;padding:8px 0">No activity yet.</div>'; }
+  else {
+    ac.innerHTML = activityLog.slice(0,4).map(a=>{
+      const ico = actionIcon(a.action);
+      return `<div class="activity-item">
+        <div class="act-av" style="background:${avatarColor(a.user_name)}">${initials(a.user_name)}</div>
+        <div class="act-body">
+          <div class="act-text"><b>${a.user_name}</b> ${a.details?.summary||a.action+' '+a.entity_type}</div>
+          <div class="act-time">${timeAgo(a.created_at)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Occupancy bars
+  const oc = document.getElementById('dashOccupancy');
+  const rows = aisles.map(a=>{
+    const dis = getDisabled(a);
+    let total=0,occupied=0;
+    for (let s=1;s<=a.sections;s++) for (let l=1;l<=a.levels;l++) {
+      const k=`${a.id}${s}-${l}`;
+      if (!dis.has(k)) { total++; if (locMap[k]) occupied++; }
+    }
+    const pct = total?Math.round(occupied/total*100):0;
+    const hi = pct>=90;
+    return `<div class="occ-row">
+      <span class="occ-label">Aisle ${a.id}</span>
+      <div class="occ-bar-wrap"><div class="occ-bar${hi?' hi':''}" style="width:${pct}%"></div></div>
+      <span class="occ-pct" style="${hi?'color:var(--orange);font-weight:700':''}">${pct}%</span>
+    </div>`;
+  }).join('');
+  oc.innerHTML = rows;
+}
+
+// ─── WAREHOUSE MAP ───────────────────────────────────────────────────────────
+function renderMap() {
+  const locMap = getLocMap();
+  const search = (document.getElementById('mapSearch')?.value||'').toLowerCase();
+  const aisleF = document.getElementById('aisleFilter')?.value||'';
+
+  // Populate aisle filter
+  const af = document.getElementById('aisleFilter');
+  if (af) {
+    const cur = af.value;
+    af.innerHTML = '<option value="">All aisles</option>'+aisles.map(a=>`<option value="${a.id}"${a.id===cur?' selected':''}>Aisle ${a.id}</option>`).join('');
+  }
+
+  // Find matching locs
+  let matchLocs = new Set();
+  if (search) {
+    for (const p of products) {
+      if (p.sku.toLowerCase().includes(search)||p.name.toLowerCase().includes(search)) {
+        (p.locations||[]).forEach(l=>matchLocs.add(l));
+      }
+    }
+  }
+
+  const container = document.getElementById('mapContainer');
+  const filtered = aisleF ? aisles.filter(a=>a.id===aisleF) : aisles;
+
+  container.innerHTML = filtered.map(aisle=>{
+    const dis = getDisabled(aisle);
+    const secLabels = Array.from({length:aisle.sections},(_,i)=>`<div class="sec-lbl">Sec ${i+1}</div>`).join('');
+    const levelRows = [];
+    for (let lvl=aisle.levels;lvl>=1;lvl--) {
+      const cells = [];
+      for (let s=1;s<=aisle.sections;s++) {
+        const k=`${aisle.id}${s}-${lvl}`;
+        if (dis.has(k)) {
+          cells.push(`<div class="cell disabled">N/A</div>`);
+        } else {
+          const prods = locMap[k]||[];
+          const found = search && matchLocs.has(k);
+          if (showEmptyOnly && prods.length) { cells.push(`<div class="cell" style="visibility:hidden"></div>`); continue; }
+          if (prods.length) {
+            const p = prods[0];
+            cells.push(`<div class="cell occupied${found?' cell-found':''}" onclick="showCell('${k}')">
+              <div class="cell-sku">${p.sku}</div>
+              <div class="cell-name">${p.name.slice(0,28)}${p.name.length>28?'…':''}</div>
+              ${prods.length>1?`<div class="cell-loc">+${prods.length-1} more</div>`:''}
+            </div>`);
+          } else {
+            cells.push(`<div class="cell empty${found?' cell-found':''}" onclick="showCell('${k}')">EMPTY</div>`);
+          }
+        }
+      }
+      levelRows.push(`<div class="level-row"><div class="lvl-lbl">Lvl ${lvl}</div>${cells.join('')}</div>`);
+    }
+
+    // Occupancy count
+    let total=0,occ=0;
+    for (let s=1;s<=aisle.sections;s++) for (let l=1;l<=aisle.levels;l++) {
+      const k=`${aisle.id}${s}-${l}`;
+      if (!dis.has(k)){total++;if(locMap[k])occ++;}
+    }
+
+    return `<div class="aisle-block">
+      <div class="aisle-hdr">Aisle ${aisle.id} — ${aisle.sections} sections · ${aisle.levels} levels <span>${occ}/${total} occupied</span></div>
+      <div class="aisle-grid">
+        <div class="section-labels"><div style="width:48px;flex-shrink:0"></div>${secLabels}</div>
+        ${levelRows.join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterMap() { renderMap(); }
+function toggleEmptyFilter() {
+  showEmptyOnly = !showEmptyOnly;
+  const btn = document.getElementById('emptyOnly');
+  btn.classList.toggle('active', showEmptyOnly);
+  btn.textContent = showEmptyOnly ? '⬜ Showing empty only' : '⬜ Empty only';
+  renderMap();
+}
+
+function showCell(loc) {
+  const locMap = getLocMap();
+  const prods = locMap[loc]||[];
+  document.getElementById('cellModalTitle').textContent = 'Location: '+loc;
+  document.getElementById('cellModalSub').textContent = prods.length ? `${prods.length} product(s) assigned` : 'This location is empty';
+  const body = document.getElementById('cellModalBody');
+  if (prods.length) {
+    body.innerHTML = prods.map(p=>`
+      <div style="background:var(--green-bg);border:1px solid #97C459;border-radius:8px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--navy)">${p.sku}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.name}</div>
+        <div style="font-size:11px;color:var(--grey);margin-top:4px">All locations: ${(p.locations||[]).join(', ')||'—'}</div>
+      </div>`).join('');
+    document.getElementById('cellModalActions').innerHTML = `
+      <button class="btn btn-secondary" onclick="closeModal('cellModal')">Close</button>
+      <button class="btn btn-primary" onclick="openEditForLoc('${loc}')">✏️ Edit location</button>`;
+  } else {
+    body.innerHTML = `<div style="background:var(--red-bg);border:1px solid #F09595;border-radius:8px;padding:12px;text-align:center;color:var(--red);font-weight:600;font-size:13px">EMPTY — no product assigned</div>`;
+    document.getElementById('cellModalActions').innerHTML = `<button class="btn btn-secondary" onclick="closeModal('cellModal')">Close</button>`;
+  }
+  openModal('cellModal');
+}
+
+function openEditForLoc(loc) {
+  closeModal('cellModal');
+  const locMap = getLocMap();
+  const prods = locMap[loc]||[];
+  if (!prods.length) return;
+  const p = prods[0];
+  editingProductId = p.id;
+  document.getElementById('editModalSub').textContent = `${p.sku} — ${p.name}`;
+  document.getElementById('editLocInput').value = (p.locations||[]).join(', ');
+  openModal('editModal');
+}
+
+async function saveLocationEdit() {
+  const raw = document.getElementById('editLocInput').value;
+  const locs = raw.split(',').map(l=>l.trim()).filter(Boolean);
+  const p = products.find(x=>x.id===editingProductId);
+  if (!p) return;
+  const old = (p.locations||[]).join(', ');
+  await sb.from('products').update({locations:locs,raw_location:raw,updated_at:new Date().toISOString()}).eq('id',editingProductId);
+  await logActivity('location_update','product',editingProductId,{summary:`moved ${p.sku} from [${old}] to [${locs.join(', ')}]`});
+  closeModal('editModal');
+  showToast('Location updated','success');
+  await loadAll();
+}
+
+// ─── ALERTS ──────────────────────────────────────────────────────────────────
+function renderAlerts() {
+  const alerts = computeAlerts();
+  const red = alerts.filter(a=>a.type==='red').length;
+  const yellow = alerts.filter(a=>a.type==='yellow').length;
+  document.getElementById('alertSummary').textContent = `${alerts.length} total — ${red} red · ${yellow} yellow`;
+  document.getElementById('alertCount').textContent = alerts.length;
+
+  const filtered = alertFilter==='all'?alerts:alerts.filter(a=>a.type===alertFilter);
+  const list = document.getElementById('alertsList');
+  if (!filtered.length) { list.innerHTML='<div style="color:var(--grey);font-size:13px;padding:20px 0;text-align:center">No alerts found.</div>'; return; }
+
+  list.innerHTML = filtered.map(a=>`
+    <div class="alert-card">
+      <span class="badge badge-${a.type==='red'?'red':'yellow'}" style="font-size:11px;padding:4px 10px;margin-top:1px">${a.type==='red'?'🔴 Red':'🟡 Yellow'}</span>
+      <div class="alert-info">
+        <div style="font-size:13px;font-weight:700;color:var(--navy)">${a.product.sku}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${a.product.name}</div>
+        <div class="alert-locs">${(a.product.locations||[]).map(l=>`<span class="alert-loc-tag ${a.type}">${l}</span>`).join('')}</div>
+        <div class="alert-reason">${a.reason}</div>
+      </div>
+      <div class="alert-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openEditById(${a.product.id})">✏️ Edit</button>
+      </div>
+    </div>`).join('');
+}
+
+function setAlertFilter(f) {
+  alertFilter = f;
+  document.querySelectorAll('#page-alerts .filter-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('f'+f.charAt(0).toUpperCase()+f.slice(1)).classList.add('active');
+  renderAlerts();
+}
+
+function openEditById(id) {
+  editingProductId = id;
+  const p = products.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('editModalSub').textContent = `${p.sku} — ${p.name}`;
+  document.getElementById('editLocInput').value = (p.locations||[]).join(', ');
+  openModal('editModal');
+}
+
+// ─── CATALOG ─────────────────────────────────────────────────────────────────
+function filterCatalog() { catalogPage=0; renderCatalog(); }
+
+function renderCatalog() {
+  const search = (document.getElementById('catalogSearch')?.value||'').toLowerCase();
+  const filter = document.getElementById('catalogFilter')?.value||'all';
+  let filtered = products.filter(p=>{
+    const match = !search || p.sku.toLowerCase().includes(search)||p.name.toLowerCase().includes(search);
+    const hasLoc = (p.locations||[]).length>0;
+    const statusMatch = filter==='all'||(filter==='located'&&hasLoc)||(filter==='unlocated'&&!hasLoc);
+    return match && statusMatch;
+  });
+  const total = filtered.length;
+  const page = filtered.slice(catalogPage*PAGE_SIZE,(catalogPage+1)*PAGE_SIZE);
+  const tbody = document.getElementById('catalogBody');
+  if (!page.length) { tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--grey)">No products found.</td></tr>'; return; }
+  tbody.innerHTML = page.map(p=>{
+    const hasLoc = (p.locations||[]).length>0;
+    const locs = (p.locations||[]).map(l=>`<span class="loc-tag">${l}</span>`).join('')||'—';
+    return `<tr>
+      <td><span class="sku-cell">${p.sku}</span></td>
+      <td style="max-width:260px">${p.name}</td>
+      <td><div class="loc-tags">${locs}</div></td>
+      <td><span class="badge badge-${hasLoc?'green':'red'}">${hasLoc?'In warehouse':'No location'}</span></td>
+      <td><button class="btn btn-secondary btn-sm" onclick="openEditById(${p.id})">✏️ Edit</button></td>
+    </tr>`;
+  }).join('');
+  const pages = Math.ceil(total/PAGE_SIZE);
+  document.getElementById('catalogPager').innerHTML = pages>1?
+    `Page ${catalogPage+1} of ${pages} — ${total} products
+     ${catalogPage>0?`<button class="btn btn-secondary btn-sm" onclick="catalogPage--;renderCatalog()">← Prev</button>`:''}
+     ${catalogPage<pages-1?`<button class="btn btn-secondary btn-sm" onclick="catalogPage++;renderCatalog()">Next →</button>`:''}`:
+    `${total} products`;
+}
+
+// ─── AISLE SETTINGS ──────────────────────────────────────────────────────────
+function renderAisleList() {
+  const el = document.getElementById('aisleListItems');
+  el.innerHTML = aisles.map(a=>`
+    <div class="aisle-list-item${currentAisleEdit===a.id?' selected':''}" onclick="selectAisle('${a.id}')">
+      <span>Aisle ${a.id}</span>
+      <span class="aisle-badge">${a.sections}s · ${a.levels}l</span>
+    </div>`).join('');
+}
+
+function selectAisle(id) {
+  currentAisleEdit = id;
+  renderAisleList();
+  renderAisleEdit(id);
+}
+
+function renderAisleEdit(id) {
+  const a = aisles.find(x=>x.id===id);
+  if (!a) return;
+  const dis = getDisabled(a);
+  const panel = document.getElementById('aisleEditPanel');
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:14px;font-weight:700;color:var(--navy)">Editing — Aisle ${a.id}</div>
+      <span style="font-size:11px;color:var(--grey)">Changes update map instantly</span>
+    </div>
+    <div class="info-box">ℹ️ Any change here recalculates the map and alerts in real time for all users.</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Sections</label>
+        <input class="form-input" id="editSections" type="number" min="1" max="30" value="${a.sections}"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Levels</label>
+        <input class="form-input" id="editLevels" type="number" min="1" max="20" value="${a.levels}"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Disabled locations (comma separated, e.g. ${a.id}1-5, ${a.id}2-5)</label>
+      <input class="form-input" id="editDisabled" value="${(a.disabled||[]).join(', ')}"/>
+    </div>
+    <hr class="divider"/>
+    <div style="font-size:12px;color:var(--grey);margin-bottom:8px">Preview — ${a.sections} sections × ${a.levels} levels</div>
+    <div class="mini-preview">
+      ${Array.from({length:Math.min(a.sections*a.levels,60)},(_,i)=>{
+        const s=(i%a.sections)+1, l=a.levels-Math.floor(i/a.sections);
+        const k=`${a.id}${s}-${l}`;
+        return `<div class="mini-cell${dis.has(k)?' dis':''}"></div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" onclick="saveAisleEdit('${a.id}')">Save changes</button>
+      <button class="btn btn-danger" onclick="deleteAisle('${a.id}')">🗑️ Delete aisle</button>
+    </div>`;
+}
+
+async function saveAisleEdit(id) {
+  const sections = parseInt(document.getElementById('editSections').value);
+  const levels = parseInt(document.getElementById('editLevels').value);
+  const disRaw = document.getElementById('editDisabled').value;
+  const disabled = disRaw.split(',').map(s=>s.trim()).filter(Boolean);
+  await sb.from('aisles').update({sections,levels,disabled,updated_at:new Date().toISOString()}).eq('id',id);
+  await logActivity('aisle','aisle',id,{summary:`updated aisle ${id} — ${sections} sections, ${levels} levels`});
+  showToast('Aisle updated','success');
+  await loadAll();
+  renderAisleEdit(id);
+}
+
+async function deleteAisle(id) {
+  if (!confirm(`Delete aisle ${id}? Products assigned here will lose this location.`)) return;
+  await sb.from('aisles').delete().eq('id',id);
+  await logActivity('delete','aisle',id,{summary:`deleted aisle ${id}`});
+  currentAisleEdit = null;
+  showToast('Aisle deleted');
+  await loadAll();
+  document.getElementById('aisleEditPanel').innerHTML='<div style="color:var(--grey);font-size:13px;padding:20px;text-align:center">Select an aisle to edit</div>';
+}
+
+async function saveNewAisle() {
+  const id = document.getElementById('newAisleName').value.trim().toUpperCase();
+  const sections = parseInt(document.getElementById('newAisleSections').value);
+  const levels = parseInt(document.getElementById('newAisleLevels').value);
+  if (!id||!sections||!levels) return showToast('Fill all fields','error');
+  if (aisles.find(a=>a.id===id)) return showToast('Aisle already exists','error');
+  await sb.from('aisles').insert({id,sections,levels,disabled:[]});
+  await logActivity('aisle','aisle',id,{summary:`created new aisle ${id} — ${sections} sections, ${levels} levels`});
+  closeModal('addAisleModal');
+  showToast('Aisle created','success');
+  await loadAll();
+}
+
+// ─── HISTORY ─────────────────────────────────────────────────────────────────
+function filterHistory() {
+  const s = (document.getElementById('historySearch')?.value||'').toLowerCase();
+  const filtered = s ? activityLog.filter(a=>a.user_name.toLowerCase().includes(s)||(a.details?.summary||'').toLowerCase().includes(s)) : activityLog;
+  renderHistoryList(filtered);
+}
+
+function renderHistory() { renderHistoryList(activityLog); }
+
+function renderHistoryList(log) {
+  const el = document.getElementById('historyList');
+  if (!log.length) { el.innerHTML='<div style="color:var(--grey);font-size:13px;padding:20px 0;text-align:center">No activity recorded yet.</div>'; return; }
+  el.innerHTML = log.map(a=>{
+    const ico = actionIcon(a.action);
+    return `<div class="history-item">
+      <div class="history-icon ${ico.cls}">${ico.ico}</div>
+      <div class="history-body">
+        <div class="history-text"><b>${a.user_name}</b> — ${a.details?.summary||a.action+' '+a.entity_type}</div>
+        <div class="history-meta">${new Date(a.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})} · ${timeAgo(a.created_at)}</div>
+      </div>
+      <div class="act-av" style="background:${avatarColor(a.user_name)};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">${initials(a.user_name)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── ADD PRODUCT ─────────────────────────────────────────────────────────────
+async function saveNewProduct() {
+  const sku = document.getElementById('newProductSku').value.trim();
+  const name = document.getElementById('newProductName').value.trim();
+  const rawLoc = document.getElementById('newProductLoc').value.trim();
+  if (!sku || !name) return showToast('SKU and name are required','error');
+  if (products.find(p=>p.sku===sku)) return showToast('A product with this SKU already exists','error');
+
+  // Parse locations same way as the rest of the app
+  const locs = rawLoc ? rawLoc.split(',').map(l=>l.trim()).filter(Boolean) : [];
+
+  const { error } = await sb.from('products').insert({
+    sku, name, raw_location: rawLoc, locations: locs
+  });
+  if (error) return showToast('Error saving product: '+error.message,'error');
+
+  await logActivity('add','product',sku,{summary:`added new product ${sku} — ${name}${locs.length?' at '+locs.join(', '):' (no location)'}`});
+
+  // Clear form
+  document.getElementById('newProductSku').value = '';
+  document.getElementById('newProductName').value = '';
+  document.getElementById('newProductLoc').value = '';
+
+  closeModal('addProductModal');
+  showToast('Product added successfully','success');
+  await loadAll();
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
+document.getElementById('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter')setUser()});
+</script>
+</body>
+</html>
