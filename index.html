@@ -948,8 +948,7 @@ async function sendWebhook(product, newLocations, oldLocations) {
     await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         event: 'bin_location_update',
