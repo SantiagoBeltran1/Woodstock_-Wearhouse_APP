@@ -940,6 +940,32 @@ async function logActivity(action, entityType, entityId, details) {
   await sb.from('activity_log').insert({user_name:currentUser,action,entity_type:entityType,entity_id:String(entityId),details});
 }
 
+// ─── WEBHOOK ──────────────────────────────────────────────────────────────────
+const WEBHOOK_URL = 'https://shopifywebhook.specialeventsales.com/bin_webhook.php';
+
+async function sendWebhook(product, newLocations, oldLocations) {
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'bin_location_update',
+        timestamp: new Date().toISOString(),
+        updated_by: currentUser,
+        product: {
+          sku: product.sku,
+          item_number: product.item_number || '',
+          name: product.name,
+          old_locations: oldLocations,
+          new_locations: newLocations
+        }
+      })
+    });
+  } catch(e) {
+    console.warn('Webhook failed (non-blocking):', e);
+  }
+}
+
 function showToast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1184,6 +1210,7 @@ async function assignProductToLoc(productId) {
   const newLocs = [...new Set([...oldLocs, currentAssignLoc])];
   await sb.from('products').update({locations: newLocs, updated_at: new Date().toISOString()}).eq('id', productId);
   await logActivity('location_update', 'product', productId, {summary: `assigned ${p.sku} to ${currentAssignLoc} (now: ${newLocs.join(', ')})`});
+  await sendWebhook(p, newLocs, oldLocs);
   closeModal('assignModal');
   showToast(`${p.sku} assigned to ${currentAssignLoc}`, 'success');
   await loadAll();
@@ -1231,7 +1258,9 @@ async function processImport() {
       const p = products.find(x => x.sku === sku || x.sku === sku.replace('-2','-1'));
       if (!p) { notFound++; continue; }
       const locs = csvMap[sku];
+      const oldLocs = p.locations || [];
       await sb.from('products').update({locations: locs, raw_location: locs.join(', '), updated_at: new Date().toISOString()}).eq('id', p.id);
+      await sendWebhook(p, locs, oldLocs);
       updated++;
     }
     await logActivity('import', 'catalog', 'bulk', {summary: `imported BIN LOC — ${updated} products updated, ${notFound} not found`});
@@ -1260,8 +1289,10 @@ async function saveLocationEdit() {
   const p = products.find(x=>x.id===editingProductId);
   if (!p) return;
   const old = (p.locations||[]).join(', ');
+  const oldLocs = p.locations || [];
   await sb.from('products').update({locations:locs,raw_location:raw,updated_at:new Date().toISOString()}).eq('id',editingProductId);
   await logActivity('location_update','product',editingProductId,{summary:`moved ${p.sku} from [${old}] to [${locs.join(', ')}]`});
+  await sendWebhook(p, locs, oldLocs);
   closeModal('editModal');
   showToast('Location updated','success');
   await loadAll();
