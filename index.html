@@ -947,20 +947,15 @@ async function sendWebhook(product, newLocations, oldLocations) {
   try {
     await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event: 'bin_location_update',
         timestamp: new Date().toISOString(),
         updated_by: currentUser,
-        product: {
-          sku: product.sku,
-          item_number: product.item_number || '',
-          name: product.name,
-          old_locations: oldLocations,
-          new_locations: newLocations
-        }
+        sku: product.sku,
+        item_number: product.item_number || '',
+        name: product.name,
+        new_locations: newLocations
       })
     });
   } catch(e) {
