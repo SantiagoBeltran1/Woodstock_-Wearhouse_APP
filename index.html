@@ -628,6 +628,9 @@ function whSku(p) {
   const suffix = currentWarehouse === 'Edmonton' ? '-2' : '-1';
   return (p.sku || '').replace(/-[12]$/, suffix);
 }
+function whItem(p) {
+  return currentWarehouse === 'Edmonton' ? (p.item_number_edmonton || '') : (p.item_number || '');
+}
 
 function toggleWhDropdown() {
   const d = document.getElementById('whDropdown');
@@ -1044,7 +1047,7 @@ async function sendWebhook(product, newLocations, oldLocations) {
         timestamp: new Date().toISOString(),
         updated_by: currentUser,
         sku: whSku(product),
-        item_number: product.item_number || '',
+        item_number: whItem(product),
         name: product.name,
         new_locations: newLocations
       })
@@ -1326,6 +1329,7 @@ async function processImport() {
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,'').toLowerCase());
     const skuIdx = headers.findIndex(h => h.includes('sku') || h.includes('key'));
     const locIdx = headers.findIndex(h => h.includes('loc') || h.includes('location') || h.includes('bin'));
+    const itemIdx = headers.findIndex(h => h.includes('item'));
 
     if (skuIdx === -1 || locIdx === -1) return showToast('CSV must have SKU/KEY and Location columns', 'error');
 
@@ -1333,23 +1337,32 @@ async function processImport() {
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g,''));
       const sku = cols[skuIdx]?.trim();
-      const loc = cols[locIdx]?.trim();
-      if (sku && loc) {
+      const loc = cols[locIdx]?.trim() || '';
+      const item = itemIdx !== -1 ? (cols[itemIdx]?.trim() || '') : '';
+      if (!sku) continue;
+      if (!csvMap[sku]) csvMap[sku] = { locs: [], item: '' };
+      if (loc) {
         const parsed = loc.replace(/[\[\]"]/g,'').split(/[,\/]/).map(l => l.trim().toUpperCase()).filter(Boolean);
-        csvMap[sku] = [...new Set([...(csvMap[sku]||[]), ...parsed])];
+        csvMap[sku].locs = [...new Set([...csvMap[sku].locs, ...parsed])];
       }
+      if (item) csvMap[sku].item = item;
     }
 
     const skus = Object.keys(csvMap);
     showToast(`Updating ${skus.length} products...`, '');
     let updated = 0, notFound = 0;
     for (const sku of skus) {
-      const base = sku.replace(/-[12]$/,''); const p = products.find(x => x.sku.replace(/-[12]$/,'') === base);
+      const base = sku.replace(/-0?[12]$/,''); const p = products.find(x => x.sku.replace(/-0?[12]$/,'') === base);
       if (!p) { notFound++; continue; }
-      const locs = csvMap[sku];
+      const { locs, item } = csvMap[sku];
+      const payload = locs.length ? locUpdatePayload(locs, locs.join(', ')) : { updated_at: new Date().toISOString() };
+      if (item) {
+        if (currentWarehouse === 'Edmonton') payload.item_number_edmonton = item;
+        else payload.item_number = item;
+      }
       const oldLocs = getLocs(p);
-      await sb.from('products').update(locUpdatePayload(locs, locs.join(', '))).eq('id', p.id);
-      await sendWebhook(p, locs, oldLocs);
+      await sb.from('products').update(payload).eq('id', p.id);
+      if (locs.length) await sendWebhook(p, locs, oldLocs);
       updated++;
     }
     await logActivity('import', 'catalog', 'bulk', {summary: `imported BIN LOC — ${updated} products updated, ${notFound} not found`});
@@ -1645,7 +1658,7 @@ function exportToExcel() {
     const locs = getLocs(p).join(', ');
     const status = getLocs(p).length > 0 ? 'In Warehouse' : 'No Location';
     return [
-      `"${(p.item_number||'').replace(/"/g,'""')}"`,
+      `"${whItem(p).replace(/"/g,'""')}"`,
       `"${whSku(p).replace(/"/g,'""')}"`,
       `"${(p.name||'').replace(/"/g,'""')}"`,
       `"${locs.replace(/"/g,'""')}"`,
