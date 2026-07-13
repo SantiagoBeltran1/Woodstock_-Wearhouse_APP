@@ -652,6 +652,7 @@ function renderWhSelector() {
 function setWarehouse(w) {
   currentWarehouse = w;
   localStorage.setItem('wiq_warehouse', w);
+  aisles = allAisles.filter(x => (x.warehouse || 'Woodstock') === currentWarehouse);
   document.getElementById('whDropdown').style.display = 'none';
   renderWhSelector();
   document.getElementById('lastUpdate').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ' · 🏢 ' + currentWarehouse;
@@ -659,6 +660,7 @@ function setWarehouse(w) {
   showToast(`Switched to ${w}`, 'success');
 }
 let aisles = [];
+let allAisles = [];
 let products = [];
 let activityLog = [];
 let alertFilter = 'all';
@@ -912,7 +914,8 @@ async function loadAll() {
     sb.from('aisles').select('*').order('id'),
     sb.from('activity_log').select('*').order('created_at',{ascending:false}).limit(100)
   ]);
-  aisles = a.data || [];
+  allAisles = a.data || [];
+  aisles = allAisles.filter(x => (x.warehouse || 'Woodstock') === currentWarehouse);
   activityLog = log.data || [];
 
   // Paginate products to get ALL records past the 1000 row default limit
@@ -1332,7 +1335,7 @@ async function processImport() {
       const sku = cols[skuIdx]?.trim();
       const loc = cols[locIdx]?.trim();
       if (sku && loc) {
-        const parsed = loc.replace(/[\[\]"]/g,'').split(',').map(l => l.trim()).filter(Boolean);
+        const parsed = loc.replace(/[\[\]"]/g,'').split(/[,\/]/).map(l => l.trim().toUpperCase()).filter(Boolean);
         csvMap[sku] = [...new Set([...(csvMap[sku]||[]), ...parsed])];
       }
     }
@@ -1523,7 +1526,7 @@ async function saveAisleEdit(id) {
   const levels = parseInt(document.getElementById('editLevels').value);
   const disRaw = document.getElementById('editDisabled').value;
   const disabled = disRaw.split(',').map(s=>s.trim()).filter(Boolean);
-  await sb.from('aisles').update({sections,levels,disabled,updated_at:new Date().toISOString()}).eq('id',id);
+  await sb.from('aisles').update({sections,levels,disabled,updated_at:new Date().toISOString()}).eq('id',id).eq('warehouse',currentWarehouse);
   await logActivity('aisle','aisle',id,{summary:`updated aisle ${id} — ${sections} sections, ${levels} levels`});
   showToast('Aisle updated','success');
   await loadAll();
@@ -1532,7 +1535,7 @@ async function saveAisleEdit(id) {
 
 async function deleteAisle(id) {
   if (!confirm(`Delete aisle ${id}? Products assigned here will lose this location.`)) return;
-  await sb.from('aisles').delete().eq('id',id);
+  await sb.from('aisles').delete().eq('id',id).eq('warehouse',currentWarehouse);
   await logActivity('delete','aisle',id,{summary:`deleted aisle ${id}`});
   currentAisleEdit = null;
   showToast('Aisle deleted');
@@ -1546,7 +1549,7 @@ async function saveNewAisle() {
   const levels = parseInt(document.getElementById('newAisleLevels').value);
   if (!id||!sections||!levels) return showToast('Fill all fields','error');
   if (aisles.find(a=>a.id===id)) return showToast('Aisle already exists','error');
-  await sb.from('aisles').insert({id,sections,levels,disabled:[]});
+  await sb.from('aisles').insert({id,sections,levels,disabled:[],warehouse:currentWarehouse});
   await logActivity('aisle','aisle',id,{summary:`created new aisle ${id} — ${sections} sections, ${levels} levels`});
   closeModal('addAisleModal');
   showToast('Aisle created','success');
