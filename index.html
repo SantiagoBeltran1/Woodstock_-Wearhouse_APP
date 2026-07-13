@@ -632,6 +632,17 @@ function whItem(p) {
   return currentWarehouse === 'Edmonton' ? (p.item_number_edmonton || '') : (p.item_number || '');
 }
 
+// ─── ROLE GUARDS ──────────────────────────────────────────────────────────────
+function canEdit() { return currentUserRole === 'admin' || currentUserRole === 'editor'; }
+function requireEdit() {
+  if (!canEdit()) { showToast('View-only account — you cannot make changes', 'error'); return false; }
+  return true;
+}
+function requireAdmin() {
+  if (currentUserRole !== 'admin') { showToast('Admin access required', 'error'); return false; }
+  return true;
+}
+
 function toggleWhDropdown() {
   const d = document.getElementById('whDropdown');
   d.style.display = d.style.display === 'none' ? 'block' : 'none';
@@ -806,11 +817,14 @@ async function showApp() {
   if (adminTab) adminTab.style.display = currentUserRole === 'admin' ? 'block' : 'none';
   renderWhSelector();
 
-  // Lock editing for viewers
-  if (currentUserRole === 'viewer') {
-    document.querySelectorAll('.btn-primary').forEach(b => {
-      if (!b.onclick || !b.onclick.toString().includes('navigate')) b.disabled = true;
+  // Hide editing UI for viewers
+  if (!canEdit()) {
+    document.querySelectorAll('button').forEach(b => {
+      const oc = b.getAttribute('onclick') || '';
+      if (oc.includes('addProductModal') || oc.includes('importModal')) b.style.display = 'none';
     });
+    const aisleTab = document.querySelector('[data-page="settings"]') || document.querySelector('[data-page="aisles"]');
+    if (aisleTab) aisleTab.style.display = 'none';
   }
 
   const h = new Date().getHours();
@@ -885,12 +899,14 @@ function userRow(u) {
 }
 
 async function approveUser(id) {
+  if (!requireAdmin()) return;
   await sb.from('users').update({ approved: true }).eq('id', id);
   showToast('User approved', 'success');
   loadUsers();
 }
 
 async function rejectUser(id) {
+  if (!requireAdmin()) return;
   if (!confirm('Remove this user? This cannot be undone.')) return;
   await sb.from('users').delete().eq('id', id);
   showToast('User removed', 'success');
@@ -898,11 +914,13 @@ async function rejectUser(id) {
 }
 
 async function setUserRole(id, role) {
+  if (!requireAdmin()) return;
   await sb.from('users').update({ role }).eq('id', id);
   showToast(`Role updated to ${role}`, 'success');
 }
 
 async function toggleUserWh(id, wh, enabled) {
+  if (!requireAdmin()) return;
   const { data } = await sb.from('users').select('warehouses').eq('id', id).limit(1);
   let whs = (data && data[0] && data[0].warehouses) || ['Woodstock'];
   if (enabled && !whs.includes(wh)) whs.push(wh);
@@ -1230,6 +1248,7 @@ function showCell(loc) {
   const prods = locMap[loc] || [];
 
   if (prods.length === 0) {
+    if (!canEdit()) { showToast('This location is empty', ''); return; }
     // EMPTY — open assign modal
     currentAssignLoc = loc;
     document.getElementById('assignLocLabel').textContent = loc;
@@ -1249,7 +1268,7 @@ function showCell(loc) {
           <div style="font-size:12px;color:var(--text2);margin-top:2px">${p.name}</div>
           <div style="font-size:11px;color:var(--grey);margin-top:2px">All locations: ${getLocs(p).join(', ')}</div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="closeModal('selectProductModal');openEditById(${p.id})">✏️ Edit</button>
+        ${canEdit() ? `<button class="btn btn-secondary btn-sm" onclick="closeModal('selectProductModal');openEditById(${p.id})">✏️ Edit</button>` : ''}
       </div>`).join('');
     openModal('selectProductModal');
     return;
@@ -1267,7 +1286,7 @@ function showCell(loc) {
     </div>`;
   document.getElementById('cellModalActions').innerHTML = `
     <button class="btn btn-secondary" onclick="closeModal('cellModal')">Close</button>
-    <button class="btn btn-primary" onclick="openEditForLoc('${loc}')">✏️ Edit location</button>`;
+    ${canEdit() ? `<button class="btn btn-primary" onclick="openEditForLoc('${loc}')">✏️ Edit location</button>` : ''}`;
   openModal('cellModal');
 }
 
@@ -1296,6 +1315,7 @@ function filterAssignSearch() {
 }
 
 async function assignProductToLoc(productId) {
+  if (!requireEdit()) return;
   const p = products.find(x => x.id === productId);
   if (!p) return;
   const oldLocs = getLocs(p);
@@ -1309,6 +1329,7 @@ async function assignProductToLoc(productId) {
 }
 
 function openAddFromEmpty() {
+  if (!requireEdit()) return;
   closeModal('assignModal');
   document.getElementById('newProductSku').value = '';
   document.getElementById('newProductName').value = '';
@@ -1335,6 +1356,7 @@ function parseCsvLine(line) {
 }
 
 async function processImport() {
+  if (!requireEdit()) return;
   const file = document.getElementById('importFile').files[0];
   if (!file) return showToast('Please select a CSV file first', 'error');
 
@@ -1391,6 +1413,7 @@ async function processImport() {
 }
 
 function openEditForLoc(loc) {
+  if (!requireEdit()) return;
   closeModal('cellModal');
   const locMap = getLocMap();
   const prods = locMap[loc]||[];
@@ -1403,6 +1426,7 @@ function openEditForLoc(loc) {
 }
 
 async function saveLocationEdit() {
+  if (!requireEdit()) return;
   const raw = document.getElementById('editLocInput').value;
   const locs = raw.split(',').map(l=>l.trim()).filter(Boolean);
   const p = products.find(x=>x.id===editingProductId);
@@ -1439,7 +1463,7 @@ function renderAlerts() {
         <div class="alert-reason">${a.reason}</div>
       </div>
       <div class="alert-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openEditById(${a.product.id})">✏️ Edit</button>
+        ${canEdit() ? `<button class="btn btn-secondary btn-sm" onclick="openEditById(${a.product.id})">✏️ Edit</button>` : ''}
       </div>
     </div>`).join('');
 }
@@ -1452,6 +1476,7 @@ function setAlertFilter(f) {
 }
 
 function openEditById(id) {
+  if (!requireEdit()) return;
   editingProductId = id;
   const p = products.find(x=>x.id===id);
   if (!p) return;
@@ -1484,7 +1509,7 @@ function renderCatalog() {
       <td style="max-width:260px">${p.name}</td>
       <td><div class="loc-tags">${locs}</div></td>
       <td><span class="badge badge-${hasLoc?'green':'red'}">${hasLoc?'In warehouse':'No location'}</span></td>
-      <td><button class="btn btn-secondary btn-sm" onclick="openEditById(${p.id})">✏️ Edit</button></td>
+      <td>${canEdit() ? `<button class="btn btn-secondary btn-sm" onclick="openEditById(${p.id})">✏️ Edit</button>` : ''}</td>
     </tr>`;
   }).join('');
   const pages = Math.ceil(total/PAGE_SIZE);
@@ -1552,6 +1577,7 @@ function renderAisleEdit(id) {
 }
 
 async function saveAisleEdit(id) {
+  if (!requireEdit()) return;
   const sections = parseInt(document.getElementById('editSections').value);
   const levels = parseInt(document.getElementById('editLevels').value);
   const disRaw = document.getElementById('editDisabled').value;
@@ -1564,6 +1590,7 @@ async function saveAisleEdit(id) {
 }
 
 async function deleteAisle(id) {
+  if (!requireEdit()) return;
   if (!confirm(`Delete aisle ${id}? Products assigned here will lose this location.`)) return;
   await sb.from('aisles').delete().eq('id',id).eq('warehouse',currentWarehouse);
   await logActivity('delete','aisle',id,{summary:`deleted aisle ${id}`});
@@ -1574,6 +1601,7 @@ async function deleteAisle(id) {
 }
 
 async function saveNewAisle() {
+  if (!requireEdit()) return;
   const id = document.getElementById('newAisleName').value.trim().toUpperCase();
   const sections = parseInt(document.getElementById('newAisleSections').value);
   const levels = parseInt(document.getElementById('newAisleLevels').value);
@@ -1641,6 +1669,7 @@ function renderHistoryList(log) {
 
 // ─── ADD PRODUCT ─────────────────────────────────────────────────────────────
 async function saveNewProduct() {
+  if (!requireEdit()) return;
   const sku = document.getElementById('newProductSku').value.trim();
   const name = document.getElementById('newProductName').value.trim();
   const rawLoc = document.getElementById('newProductLoc').value.trim();
