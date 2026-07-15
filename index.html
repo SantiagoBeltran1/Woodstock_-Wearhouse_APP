@@ -686,7 +686,7 @@ const PAGE_SIZE = 50;
 const AVATAR_COLORS = ['#043e78','#ff5900','#3B6D11','#BA7517','#5b21b6','#0e7490','#be185d'];
 
 // ─── SIMPLE PASSWORD HASH (base64 — not for high security, just prevents plain text) ─
-function hashPassword(pw) { return btoa(unescape(encodeURIComponent(pw))); }
+// Password hashing now happens server-side (app_login / app_register RPC functions)
 
 // ─── AUTH FUNCTIONS ────────────────────────────────────────────────────────────
 function showAuthTab(tab) {
@@ -706,21 +706,12 @@ async function doLogin() {
 
   if (!email || !password) { errEl.textContent = 'Please enter email and password.'; errEl.style.display = 'block'; return; }
 
-  const { data, error } = await sb.from('users').select('*').eq('email', email).limit(1);
-  if (error || !data || data.length === 0) { errEl.textContent = 'No account found with that email.'; errEl.style.display = 'block'; return; }
+  const { data, error } = await sb.rpc('app_login', { p_email: email, p_password: password });
+  if (error) { errEl.textContent = 'Login failed. Please try again.'; errEl.style.display = 'block'; return; }
+  if (data.status === 'not_found') { errEl.textContent = 'No account found with that email.'; errEl.style.display = 'block'; return; }
+  if (data.status === 'wrong_password') { errEl.textContent = 'Incorrect password.'; errEl.style.display = 'block'; return; }
 
-  const user = data[0];
-  const hashed = hashPassword(password);
-
-  // Support both hashed and plain-text passwords (for initial admin account)
-  if (user.password_hash !== hashed && user.password_hash !== password && user.password_hash !== 'CHANGE_ME') {
-    errEl.textContent = 'Incorrect password.'; errEl.style.display = 'block'; return;
-  }
-
-  // If CHANGE_ME, force update with hashed version
-  if (user.password_hash === 'CHANGE_ME') {
-    await sb.from('users').update({ password_hash: hashed }).eq('id', user.id);
-  }
+  const user = data.user;
 
   if (!user.approved) {
     document.getElementById('authScreen').style.display = 'none';
@@ -750,17 +741,11 @@ async function doRegister() {
   if (!name || !email || !password) { errEl.textContent = 'All fields are required.'; errEl.style.display = 'block'; return; }
   if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
 
-  const { data: existing } = await sb.from('users').select('id').eq('email', email).limit(1);
-  if (existing && existing.length > 0) { errEl.textContent = 'An account with this email already exists.'; errEl.style.display = 'block'; return; }
-
-  const { error } = await sb.from('users').insert({
-    name, email,
-    password_hash: hashPassword(password),
-    role: 'viewer',
-    approved: false
-  });
+  const { data, error } = await sb.rpc('app_register', { p_name: name, p_email: email, p_password: password });
 
   if (error) { errEl.textContent = 'Registration failed. Please try again.'; errEl.style.display = 'block'; return; }
+  if (data.status === 'exists') { errEl.textContent = 'An account with this email already exists.'; errEl.style.display = 'block'; return; }
+  if (data.status === 'weak') { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
 
   successEl.textContent = '✅ Registration submitted! An admin will review your account.';
   successEl.style.display = 'block';
@@ -788,7 +773,7 @@ window.onload = async () => {
     try {
       const session = JSON.parse(saved);
       // Verify user still exists and is approved
-      const { data } = await sb.from('users').select('*').eq('id', session.id).limit(1);
+      const { data } = await sb.from('users').select('id,name,role,approved,warehouses').eq('id', session.id).limit(1);
       if (data && data.length > 0 && data[0].approved) {
         currentUser = data[0].name;
         currentUserRole = data[0].role;
@@ -838,7 +823,7 @@ async function showApp() {
 
 // ─── ADMIN USER MANAGEMENT ─────────────────────────────────────────────────────
 async function loadUsers() {
-  const { data, error } = await sb.from('users').select('*').order('created_at', {ascending: false});
+  const { data, error } = await sb.from('users').select('id,name,email,role,approved,warehouses,created_at').order('created_at', {ascending: false});
   if (error) { showToast('Failed to load users', 'error'); return; }
   renderUsers(data || []);
 }
@@ -1734,7 +1719,6 @@ document.addEventListener('click', e => {
     if (d) d.style.display = 'none';
   }
 });
-document.getElementById('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter')setUser()});
 document.getElementById('importFile').addEventListener('change', function() {
   const file = this.files[0];
   if (!file) return;
